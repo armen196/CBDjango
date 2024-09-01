@@ -2,10 +2,12 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from .models import Users
 from django.views.decorators.csrf import csrf_exempt
+
+import CorkBoard.codes as codes
 import json
 
 def home(request):
-    return HttpResponse("Welcome!")
+    return HttpResponse("Updated from my laptop!!")
 
 def tm(request):
     return HttpResponse("You have reached temp")
@@ -20,14 +22,14 @@ def verifyLogin(request):
         if user:
             print("Exists")
             toReturn = {
-                "code": 501,
+                "code": codes.USER_EXISTS,
                 "message": "User exists"
             }
             return JsonResponse(toReturn)
         else:
             print("Does not exist")
             toReturn = {
-                "code": 502,
+                "code": codes.USER_DOES_NOT_EXIST,
                 "message": "User does not exist"
             }
             return JsonResponse(toReturn)
@@ -39,11 +41,23 @@ def addUser(request):
         data = json.loads(request.body)
         username = data.get('username')
         password = data.get('password')
-        print(f"Username: {username}, Password: {password}")
-        user = Users(username=username, password=password)
-        user.save()
-        print(f"Got user ${username} with password ${password}")
-        return HttpResponse(f"User {username} added successfully!")
+        if (Users.objects.filter(username=username).first()):
+            print(f"    Username {username} already taken")
+            toReturn = {
+                "code": codes.USERNAME_TAKEN,
+                "message": "Username already taken"
+            }
+            return JsonResponse(toReturn)
+        else:
+            print(f"Registering username {username} with password {password}")
+            user = Users(username=username, password=password)
+            user.save()
+            toReturn = {
+                "code": codes.USERNAME_AVAILABLE,
+                "message": "User added successfuly"
+            }
+            return JsonResponse(toReturn)
+        
     else:
         return HttpResponse("Invalid request method.")
         
