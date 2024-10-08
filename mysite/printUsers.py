@@ -9,7 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 django.setup()
 
 # Import the model after setting up Django
-from CorkBoard.models import Users, Posts, PostsReplies, Lists, ListItem
+from CorkBoard.models import Users, Posts, PostsReplies, Lists, ListItem, Chore
 
 # Function to print all users
 def print_users():
@@ -27,11 +27,15 @@ def delete_all_posts():
 def delete_all_lists():
     Lists.objects.all().delete()
     ListItem.objects.all().delete()
+    
+def delete_all_chores():
+    Chore.objects.all().delete()
 
 def delete_all():
     delete_all_lists()
     delete_all_posts()
     delete_all_users()
+    delete_all_chores()
 
 # Call the function
 if __name__ == "__main__":
@@ -45,5 +49,7 @@ if __name__ == "__main__":
         delete_all_posts()
     if (sys.argv[1] == 'delete_lists'):
         delete_all_lists()
+    if (sys.argv[1] == 'delete_chores'):
+        delete_all_chores()
     if (sys.argv[1] == 'delete_all'):
         delete_all()

@@ -1,8 +1,11 @@
+from ntpath import join
+from pathlib import Path
 from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse
-from .models import Users, Posts, PostsReplies, Lists, ListItem
+from django.http import HttpResponse, JsonResponse, FileResponse
+from .models import Users, Posts, PostsReplies, Lists, ListItem, Chore
 from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
+import os
 
 import CorkBoard.codes as codes
 import json
@@ -36,18 +39,32 @@ def verifyLogin(request):
                 "code": codes.USER_DOES_NOT_EXIST,
                 "message": "User does not exist"
             }
+            print("what")
             return JsonResponse(toReturn)
     
+@csrf_exempt
+def getGroupMembers(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        groupID = data.get('groupID')
+        groupMembers = Users.objects.filter(groupID=groupID)
+        
+        return JsonResponse(list(groupMembers.values()), safe=False)
+    
+    
+
 
 @csrf_exempt
 def addUser(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = request.POST
         username = data.get('username')
         password = data.get('password')
         firstName = data.get('firstName')
         lastName = data.get('lastName')
         groupID = data.get('groupID')
+        formData = request.FILES.get('image')
+        print(formData)
         if (Users.objects.filter(username=username).first()):
             print(f"    Username {username} already taken")
             toReturn = {
@@ -57,7 +74,7 @@ def addUser(request):
             return JsonResponse(toReturn)
         else:
             print(f"Registering user:   Username: {username}\n              Password: {password}\n              FirstName: {firstName}\n              LastName: {lastName}\n              GroupID: {groupID}")
-            user = Users(username=username, password=password, firstName=firstName, lastName=lastName, groupID=groupID)
+            user = Users(username=username, password=password, firstName=firstName, lastName=lastName, groupID=groupID, image=formData)
             user.save()
             toReturn = {
                 "code": codes.USERNAME_AVAILABLE,
@@ -67,6 +84,26 @@ def addUser(request):
         
     else:
         return HttpResponse("Invalid request method.")
+
+# class Users(models.Model):
+#     username = models.CharField(max_length=25, null=False, blank=False)
+#     password = models.CharField(max_length=15, null=False, blank=False)
+#     firstName = models.CharField(max_length=25)
+#     lastName = models.CharField(max_length=25)
+#     groupID = models.CharField(max_length=10)
+#     image = models.ImageField(upload_to='images/')
+
+@csrf_exempt
+def getUsers(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        groupID = data.get('groupID')
+        toReturn = Users.objects.filter(groupID=groupID)
+        if toReturn:
+            print(f"Returning users for group {groupID}")
+            return JsonResponse(list(toReturn.values('username', 'firstName', 'lastName', 'image')), safe=False)
+        else:
+            return HttpResponse(codes.NO_USERS)
 
 @csrf_exempt   
 def getPosts(request):
@@ -267,9 +304,76 @@ def getList(request):
             }
             toReturn.append(data)
         return JsonResponse({'lists': toReturn}, safe=False)
-        if (items):
-            print("    Found items")
-            return JsonResponse(items)
+    
+@csrf_exempt
+def getChores(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        groupID = data.get("groupID")
+        chores = Chore.objects.filter(groupID=groupID).values()
+        if chores:
+            toReturn = list(chores)
+            
+            return JsonResponse(toReturn, safe=False)
+        else: 
+            return HttpResponse("No chores")
+            
+@csrf_exempt
+def addChore(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        groupID = data.get("groupID")
+        chore = data.get("chore")
+        description = data.get("description")
+        poster = Users.objects.get(username=data.get("userName"))
+        print(f"groupID: {groupID}")
+        if Chore.objects.filter(chore=chore):
+            return HttpResponse(codes.CHORE_ALREADY_EXISTS)
+        choreToAdd = Chore.objects.create(groupID=groupID, chore=chore, poster=poster, description=description)
+        choreToAdd.save()
+        print(f"Adding {chore} with description {description}")
+        return HttpResponse(codes.CHORE_ADDED)
+        
+@csrf_exempt
+def removeChore(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        choreToDelete = Chore.objects.filter(chore=data.get("chore"))
+        choreToDelete.delete()
+        
+@csrf_exempt
+def getImageFromId(request, id):
+    if request.method == "GET":
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        user = Users.objects.get(id=id);
+        MEDIA_ROOT = os.path.join(BASE_DIR, 'media/images/')
+        return FileResponse(open(join(MEDIA_ROOT, user.username + ".jpg"), 'rb'), content_type='image/jpeg')
+    else:
+        return HttpResponse('Nope...')
+    
+@csrf_exempt
+def markChoreAsCompleted(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        id = data.get("choreID")
+        completer = data.get("userName")
+        chore = Chore.objects.get(id=id)
+        completerID = Users.objects.get(username=completer)
+        print(chore.chore)
+        if chore.completed:
+            chore.completer = None
         else:
-            print(f"No items for group {groupID}")
-            #return JsonResponse(toReturn)
+            chore.completer = completerID
+        chore.completed = not chore.completed
+        chore.save()
+        print(f"Saving chore {chore.chore} with new status {chore.completed} completer {chore.completer}")
+        return HttpResponse("Successfully marked chore")
+    else:
+        return HttpResponse('Nope...')
+    
+@csrf_exempt
+def getUsernameFromID(request, id):
+    if request.method == "GET":
+        user = Users.objects.get(id=id)
+        return HttpResponse(user.username)
+    

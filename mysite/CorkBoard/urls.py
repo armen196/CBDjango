@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -16,5 +18,15 @@ urlpatterns = [
     path("markAsPurchased/", views.markAsPurchased, name="markAsPurchased"),
     path("changeName/", views.changeName, name="changeName"),
     path("deleteList/", views.deleteList, name="deleteList"),
-    
+    path("getGroupMembers/", views.getGroupMembers, name="getGroupMembers"),
+    path("getUsers/", views.getUsers, name="getUsers"),
+    path("getChores/", views.getChores, name="getChores"),
+    path("addChore/", views.addChore, name="addChore"),
+    path("removeChore/", views.removeChore, name="removeChore"),
+    path("getImageFromID/<int:id>", views.getImageFromId, name="getImageFromId"),
+    path("markChoreAsCompleted/", views.markChoreAsCompleted, name="markChoreAsCompleted"),
+    path("getUsernameFromID/<int:id>", views.getUsernameFromID, name="getUsernameFromID"),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
